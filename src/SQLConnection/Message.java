@@ -1,9 +1,9 @@
 package SQLConnection;
 
+
 import Sensor.SensorReading;
 
 import java.io.Serializable;
-
 
 
 public class Message implements Serializable {
@@ -53,6 +53,14 @@ public class Message implements Serializable {
         this.content = content;
     }
 
+    public SensorReading getSensorReading() {
+        return sensorReading;
+    }
+
+    public String getSensorType() {
+        return sensorType;
+    }
+
     @Override
     public String toString () {
         String result = "Message ID: " + id + "\n" + "Type: " + messageType + "\n";
@@ -66,6 +74,5 @@ public class Message implements Serializable {
 
 
 }
-
 
 

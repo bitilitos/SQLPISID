@@ -16,6 +16,8 @@ public class SensorReading implements Serializable {
 
         if ((time = parseTimestamp(timestampString)) == null) {
             this.timestamp = new Timestamp(0,0,0,0,0,0,0);
+        } else {
+            this.timestamp = time;
         }
 
     }
