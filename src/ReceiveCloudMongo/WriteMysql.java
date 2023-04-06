@@ -1,6 +1,4 @@
-package MongoData;
-
-//(c) ISCTE-IUL, Pedro Ramos, 2022
+package ReceiveCloudMongo;//(c) ISCTE-IUL, Pedro Ramos, 2022
 
 //import org.bson.Document;
 //import org.bson.*;
@@ -10,34 +8,32 @@ package MongoData;
 //import org.json.JSONObject;
 //import org.json.JSONException;
 
-import org.bson.BSON;
-import org.bson.Document;
-
 import java.io.*;
 import java.util.*;
 import java.util.List;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.concurrent.*;
 import java.sql.*;
 import javax.swing.*;
 import java.awt.event.*;
 import java.awt.*;
-import javax.swing.text.BadLocationException;
-import java.sql.SQLException;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
+import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 
-public class WriteMysql {
+public class WriteMysql extends Thread{
     static JTextArea documentLabel = new JTextArea("\n");
+    private BlockingQueue<String> messageQueue;
     static Connection connTo;
-    static String sql_database_connection_to = new String();
+    static String sql_database_connection_to ="jdbc:mariadb://localhost:3306/rats";
     static String sql_database_password_to= new String();
-    static String sql_database_user_to= new String();
+    static String sql_database_user_to= "root";
     static String  sql_table_to= new String();
 
+    public WriteMysql(String sql_table_to, BlockingQueue<String> messageQueue) {
+        this.messageQueue = messageQueue;
+        this.sql_table_to = sql_table_to;
 
+    }
     private static void createWindow() {
         JFrame frame = new JFrame("Data Bridge");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -59,24 +55,20 @@ public class WriteMysql {
         });
     }
 
-    public void connectToSQL (String sqlTable) {
+    @Override
+    public void run() {
         createWindow();
-        try {
-            Properties p = new Properties();
-            p.load(new FileInputStream("WriteMysql.ini"));
-            sql_table_to= sqlTable;
-            sql_database_connection_to = p.getProperty("sql_database_connection_to");
-            sql_database_password_to = p.getProperty("sql_database_password_to");
-            sql_database_user_to= p.getProperty("sql_database_user_to");
-        } catch (Exception e) {
-            System.out.println("Error reading WriteMysql.ini file " + e);
-            JOptionPane.showMessageDialog(null, "The WriteMysql inifile wasn't found.", "Data Migration", JOptionPane.ERROR_MESSAGE);
+        connectoDatabase();
+        while(true){
+            try {
+                String message = messageQueue.take();
+                writeToMySQL(message);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
-        new WriteMysql().connectDatabase_to();
-        //new WriteMysql().ReadData(data);
     }
-
-    public void connectDatabase_to() {
+    public void connectoDatabase() {
         try {
             Class.forName("org.mariadb.jdbc.Driver");
             connTo =  DriverManager.getConnection(sql_database_connection_to,sql_database_user_to,sql_database_password_to);
@@ -85,17 +77,6 @@ public class WriteMysql {
         } catch (Exception e){System.out.println("Mysql Server Destination down, unable to make the connection. "+e);}
     }
 
-
-    public void ReadData(List<String> docs) {
-
-
-        for (String doc : docs) {
-            writeToMySQL(doc.toString());
-        }
-    }
-    //********************************************
-    // PRECISA DE SER ALTERADO DE INSERT PARA SP
-    //********************************************
     public void writeToMySQL (String c){
         c.replace('}',' ');
         String convertedjson = new String();
@@ -128,10 +109,8 @@ public class WriteMysql {
         }
         try {
             Statement s = connTo.createStatement();
-            int result = new Integer(s.executeUpdate(SqlCommando));
+            int result = Integer.valueOf(s.executeUpdate(SqlCommando));
             s.close();
         } catch (Exception e){System.out.println("Error Inserting in the database . " + e); System.out.println(SqlCommando);}
     }
-
-
 }
