@@ -8,6 +8,11 @@ package ReceiveCloudMongo;//(c) ISCTE-IUL, Pedro Ramos, 2022
 //import org.json.JSONObject;
 //import org.json.JSONException;
 
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBObject;
+import com.mongodb.util.JSON;
+import org.bson.types.ObjectId;
+
 import java.io.*;
 import java.util.*;
 import java.util.List;
@@ -20,26 +25,28 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 
-public class WriteMysql extends Thread{
+public class WriteMysql extends Thread {
     static JTextArea documentLabel = new JTextArea("\n");
     private BlockingQueue<String> messageQueue;
     static Connection connTo;
-    static String sql_database_connection_to ="jdbc:mariadb://localhost:3306/rats";
-    static String sql_database_password_to= new String();
-    static String sql_database_user_to= "root";
-    static String  sql_table_to= new String();
+    static String sql_database_connection_to = "jdbc:mariadb://localhost:3306/rats";
+    static String sql_database_password_to = "paloco2023";
+    static String sql_database_user_to = "root";
+    String sql_table_to = new String();
 
     public WriteMysql(String sql_table_to, BlockingQueue<String> messageQueue) {
         this.messageQueue = messageQueue;
         this.sql_table_to = sql_table_to;
+        //createWindow();
 
     }
+
     private static void createWindow() {
         JFrame frame = new JFrame("Data Bridge");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        JLabel textLabel = new JLabel("Data : ",SwingConstants.CENTER);
+        JLabel textLabel = new JLabel("Data : ", SwingConstants.CENTER);
         textLabel.setPreferredSize(new Dimension(600, 30));
-        JScrollPane scroll = new JScrollPane (documentLabel,JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+        JScrollPane scroll = new JScrollPane(documentLabel, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
         scroll.setPreferredSize(new Dimension(600, 200));
         JButton b1 = new JButton("Stop the program");
         frame.getContentPane().add(textLabel, BorderLayout.PAGE_START);
@@ -57,63 +64,127 @@ public class WriteMysql extends Thread{
 
     @Override
     public void run() {
-        createWindow();
+
         connectoDatabase();
-        while(true){
+        while (true) {
             try {
                 String message = messageQueue.take();
                 writeToMySQL(message);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
             }
         }
     }
+
     public void connectoDatabase() {
         try {
             Class.forName("org.mariadb.jdbc.Driver");
-            connTo =  DriverManager.getConnection(sql_database_connection_to,sql_database_user_to,sql_database_password_to);
-            documentLabel.append("SQl Connection:"+sql_database_connection_to+"\n");
-            documentLabel.append("Connection To MariaDB Destination " + sql_database_connection_to + " Suceeded"+"\n");
-        } catch (Exception e){System.out.println("Mysql Server Destination down, unable to make the connection. "+e);}
+            connTo = DriverManager.getConnection(sql_database_connection_to, sql_database_user_to, sql_database_password_to);
+            documentLabel.append("SQl Connection:" + sql_database_connection_to + "\n");
+            documentLabel.append("Connection To MariaDB Destination " + sql_database_connection_to + " Suceeded" + "\n");
+        } catch (Exception e) {
+            System.out.println("Mysql Server Destination down, unable to make the connection. " + e);
+        }
     }
 
 
     //TENHO QUE ALTERAR ESTA FUNÇÃO PARA LIGAR COM SP E TRIGGERS
 
-    public void writeToMySQL (String c){
-        c.replace('}',' ');
-        String convertedjson = new String();
-        convertedjson = c;
-        String fields = new String();
-        String values = new String();
-        String SqlCommando = new String();
-        String column_database = new String();
-        fields = "";
-        values = "";
-        column_database = " ";
-        String x = convertedjson.toString();
-        String[] splitArray = x.split(",");
-        for (int i=0; i<splitArray.length; i++) {
-            String[] splitArray2 = splitArray[i].split("=");
-            if (i==0) fields = " IDMeasure";
-            else fields = fields + ", " + splitArray2[0] ;
-            if (i==0 || i==1) values += "\'" + splitArray2[1] + "\'" + ", ";
-            else if (i==splitArray.length-1) values += "\'" + splitArray2[1].replace("}", "") + "\' ";
-            else values = values + splitArray2[1] + ", ";
+    public void writeToMySQL(String c) throws SQLException {
+        String sqlQuery = "";
+        DBObject reading = getDBObjectFromReading(c);
+        CallableStatement stmt = null;
+        try {
 
-        }
-        fields = fields.replace("\"", "");
-        SqlCommando = "Insert into " + sql_table_to + " (" + fields.substring(1, fields.length()) + ") values (" + values.substring(0, values.length()-1) + ");";
-        //System.out.println(SqlCommando);
-        try {
-            documentLabel.append(SqlCommando.toString()+"\n");
+            if (sql_table_to.equals("passagesmeasurements")) {
+                String query = "{CALL spCreatePassagesMeasurements(?,?,?,?,?,?,?)}";
+                stmt = connTo.prepareCall(query);
+                stmt = statementForPassageMeasurementsSP(reading, stmt);
+            } else if (sql_table_to.equals("temperaturemeasurements")) {
+                String query = "{CALL spCreateTemperatureMeasurements(?,?,?,?,?,?,?)}";
+                stmt = connTo.prepareCall(query);
+                stmt = statementForTemperatureMeasurementsSP(reading, stmt);
+            } else {
+                String query = "{CALL spCreateAlerts(?,?,?,?,?,?)}";
+                stmt = connTo.prepareCall(query);
+                stmt = statementForAlertsSP(reading, stmt);
+            }
+
+            stmt.executeUpdate();
         } catch (Exception e) {
-            System.out.println(e);
+            System.out.println("Error Inserting in the database . " + e);
+            System.out.println(sqlQuery);
+        } finally {
+            stmt.close();
         }
-        try {
-            Statement s = connTo.createStatement();
-            int result = Integer.valueOf(s.executeUpdate(SqlCommando));
-            s.close();
-        } catch (Exception e){System.out.println("Error Inserting in the database . " + e); System.out.println(SqlCommando);}
+
+
     }
+
+
+
+    private CallableStatement statementForPassageMeasurementsSP(DBObject reading, CallableStatement cs) throws SQLException {
+        CallableStatement stmt = cs;
+
+        stmt.setString(1, reading.get("_id").toString());
+        stmt.setTimestamp(2, Timestamp.valueOf(reading.get("Hour").toString()));
+        stmt.setInt(3, (Integer) reading.get("EntranceRoom"));
+        stmt.setInt(4, (Integer) reading.get("ExitRoom"));
+        stmt.setBoolean(5, (Boolean) (reading.get("isValid")));
+        stmt.setString(6, (String) reading.get("Error"));
+        stmt.setString(7, "");
+        return stmt;
+    }
+
+    private CallableStatement statementForTemperatureMeasurementsSP(DBObject reading, CallableStatement cs) throws SQLException {
+        CallableStatement stmt = cs;
+
+        stmt.setString(1, reading.get("_id").toString());
+        stmt.setTimestamp(2, Timestamp.valueOf(reading.get("Hour").toString()));
+        stmt.setDouble(3, (Double) reading.get("Measure"));
+        stmt.setInt(4, (Integer) reading.get("Sensor"));
+        stmt.setBoolean(5, (Boolean) (reading.get("isValid")));
+        stmt.setString(6, (String) reading.get("Error"));
+        stmt.setString(7, "");
+        return stmt;
+    }
+
+    private CallableStatement statementForAlertsSP(DBObject reading, CallableStatement cs) throws SQLException {
+        CallableStatement stmt = cs;
+        if(reading.containsField("EntranceRoom")){
+            int entRoom = (Integer) reading.get("EntranceRoom");
+            int exitRoom = (Integer) reading.get("ExitRoom");
+            String roomConcat = Integer.toString(entRoom) + Integer.toString(exitRoom);
+            stmt.setInt(1, Integer.parseInt(roomConcat));
+        } else stmt.setInt(1, -1);
+
+        if(reading.containsField("Measure")){
+            stmt.setInt(2, (Integer) reading.get("Sensor"));
+            stmt.setDouble(3, (Double) reading.get("Measure"));
+        }
+        else {
+            stmt.setInt(2, -1);
+            stmt.setDouble(3, -272.15);
+        }
+        stmt.setString(4, (String) (reading.get("Message")));
+        stmt.setString(5, (String) reading.get("AlertType"));
+        stmt.setTimestamp(6, Timestamp.valueOf(reading.get("Hour").toString()));
+        return stmt;
+    }
+
+
+    private DBObject getDBObjectFromReading (String reading) {
+        try{
+            DBObject document_json;
+            document_json = (DBObject) JSON.parse(reading);
+            return document_json;
+        } catch (Exception e){
+            System.out.println(e);
+            return null;
+        }
+
+    }
+
 }

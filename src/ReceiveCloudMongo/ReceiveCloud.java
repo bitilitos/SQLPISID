@@ -56,7 +56,7 @@ public class ReceiveCloud  {
                     ReceiveTopic cloud2java = new ReceiveTopic(messageQueue, collection.getKey(), cloud_server, collection.getValue());
                     WriteMysql write2mysql = new WriteMysql(collection.getValue(), messageQueue);
                     cloud2java.start();
-                //    write2mysql.start();
+                    write2mysql.start();
                 }
             };
             thread.run();

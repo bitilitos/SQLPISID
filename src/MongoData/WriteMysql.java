@@ -120,7 +120,7 @@ public class WriteMysql {
         }
         fields = fields.replace("\"", "");
         SqlCommando = "Insert into " + sql_table_to + " (" + fields.substring(1, fields.length()) + ") values (" + values.substring(0, values.length()-1) + ");";
-        //System.out.println(SqlCommando);
+        System.out.println("SQLQuery: " + SqlCommando);
         try {
             documentLabel.append(SqlCommando.toString()+"\n");
         } catch (Exception e) {

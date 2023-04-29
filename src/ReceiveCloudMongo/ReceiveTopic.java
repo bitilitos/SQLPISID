@@ -47,7 +47,7 @@ public class ReceiveTopic extends Thread implements MqttCallback {
             throws Exception {
         try {
             messageQueue.add(c.toString());
-            System.out.println(c);
+           // System.out.println(c);
         } catch (Exception e) {
             System.out.println(e);
         }
