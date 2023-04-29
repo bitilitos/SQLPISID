@@ -24,7 +24,7 @@ public class ReceiveCloud  {
     private static void setTopicToTablesMap() {
         try {
             Properties p = new Properties();
-            p.load(new FileInputStream("/home/bsopas/MQTTtoMySQL/ReceiveCloud.ini"));
+            p.load(new FileInputStream("ReceiveCloud.ini"));
             String cloudTopic = p.getProperty("cloud_topic");
             String mySQLTables = p.getProperty("sql_tables");
             cloud_server = p.getProperty("cloud_server");
@@ -51,10 +51,12 @@ public class ReceiveCloud  {
                 @Override
                 public void run() {
                     BlockingQueue<String> messageQueue = new LinkedBlockingQueue<>();
-                    RecieveTopic cloud2java = new RecieveTopic(messageQueue, collection.getKey(), cloud_server, collection.getValue());
+                    String key = collection.getKey();
+                    String value = collection.getValue();
+                    ReceiveTopic cloud2java = new ReceiveTopic(messageQueue, collection.getKey(), cloud_server, collection.getValue());
                     WriteMysql write2mysql = new WriteMysql(collection.getValue(), messageQueue);
                     cloud2java.start();
-                    write2mysql.start();
+                //    write2mysql.start();
                 }
             };
             thread.run();

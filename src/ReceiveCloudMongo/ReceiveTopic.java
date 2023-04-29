@@ -8,23 +8,18 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 
 import java.util.*;
-import java.util.Vector;
-import java.io.File;
-import java.io.*;
 import javax.swing.*;
-import java.awt.*;
-import java.awt.event.*;
 import java.util.concurrent.BlockingQueue;
 
-public class RecieveTopic  extends Thread implements MqttCallback {
+public class ReceiveTopic extends Thread implements MqttCallback {
     private BlockingQueue<String> messageQueue;
-    MqttClient mqttclient;
-    static String cloud_server = new String();
-    static String cloud_topic = new String();
-    static String sql_table = new String();
-    static JTextArea documentLabel = new JTextArea("\n");
+    private MqttClient mqttclient;
+    private static String cloud_server = new String();
+    private String cloud_topic = new String();
+    private String sql_table = new String();
 
-    public RecieveTopic(BlockingQueue<String> messageQueue, String cloudTopic, String cloudServer, String sqlTable) {
+
+    public ReceiveTopic(BlockingQueue<String> messageQueue, String cloudTopic, String cloudServer, String sqlTable) {
         this.sql_table = sqlTable;
         this.cloud_server = cloudServer;
         this.cloud_topic = cloudTopic;
@@ -52,6 +47,7 @@ public class RecieveTopic  extends Thread implements MqttCallback {
             throws Exception {
         try {
             messageQueue.add(c.toString());
+            System.out.println(c);
         } catch (Exception e) {
             System.out.println(e);
         }
@@ -59,6 +55,7 @@ public class RecieveTopic  extends Thread implements MqttCallback {
 
     @Override
     public void connectionLost(Throwable cause) {
+        System.out.println("MQTT Connection Lost, cause:" + cause);
     }
 
     @Override

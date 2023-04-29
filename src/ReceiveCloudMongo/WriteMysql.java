@@ -77,6 +77,9 @@ public class WriteMysql extends Thread{
         } catch (Exception e){System.out.println("Mysql Server Destination down, unable to make the connection. "+e);}
     }
 
+
+    //TENHO QUE ALTERAR ESTA FUNÇÃO PARA LIGAR COM SP E TRIGGERS
+
     public void writeToMySQL (String c){
         c.replace('}',' ');
         String convertedjson = new String();
