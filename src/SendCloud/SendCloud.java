@@ -60,8 +60,8 @@ public class SendCloud extends Thread implements MqttCallback  {
 					ResultSet rs = stmt.executeQuery(query);
 					if (rs.next()) {
 
-						if (experimentID != -1)
-							experimentID = rs.getInt("IDExperiment");
+						if (experimentID == -1)
+							startExperiment(rs.getInt("IDExperiment"));
 
 						else
 							experimentID = -1;
@@ -86,6 +86,22 @@ public class SendCloud extends Thread implements MqttCallback  {
 
 		}
 	}
+
+	private void startExperiment(int id) {
+		experimentID = id;
+		try {
+			String query = "{CALL spStartExperiment(?)}";
+			CallableStatement stmt = WriteMysql.getConnTo().prepareCall(query);
+			stmt.setInt(1, experimentID);
+			stmt.executeUpdate();
+
+		} catch (SQLException e) {
+			throw new RuntimeException(e);
+		}
+
+
+	}
+
 
 	public void connectCloud() {
         try {
