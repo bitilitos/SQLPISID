@@ -7,6 +7,7 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 
+import java.io.*;
 import java.util.*;
 import javax.swing.*;
 import java.util.concurrent.BlockingQueue;
@@ -17,6 +18,9 @@ public class ReceiveTopic extends Thread implements MqttCallback {
     private static String cloud_server = new String();
     private String cloud_topic = new String();
     private String sql_table = new String();
+
+    private static FileWriter fw;
+    private static File csvFile;
 
 
     public ReceiveTopic(BlockingQueue<String> messageQueue, String cloudTopic, String cloudServer, String sqlTable) {
@@ -31,6 +35,7 @@ public class ReceiveTopic extends Thread implements MqttCallback {
     }
     public void connecCloud() {
         int i;
+        getReadyCSV();
         try {
             i = new Random().nextInt(100000);
             mqttclient = new MqttClient(cloud_server, "ReceiveCloud"+String.valueOf(i)+"_"+cloud_topic);
@@ -46,10 +51,24 @@ public class ReceiveTopic extends Thread implements MqttCallback {
     public void messageArrived(String topic, MqttMessage c)
             throws Exception {
         try {
+            fw = new FileWriter(csvFile.getPath(), true);
+            fw.append(c.toString());
             messageQueue.add(c.toString());
-           // System.out.println(c);
+            System.out.println("Received: " + c.toString());
         } catch (Exception e) {
             System.out.println(e);
+        }finally {
+            fw.close();
+        }
+    }
+
+    private static void getReadyCSV() {
+        try {
+            csvFile = new File("receivedMessages.csv");
+            fw = new FileWriter(csvFile.getPath(), false);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

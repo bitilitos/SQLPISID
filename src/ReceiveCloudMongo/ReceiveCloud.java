@@ -1,5 +1,6 @@
 package ReceiveCloudMongo;
 
+import SendCloud.*;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttClient;
@@ -14,15 +15,17 @@ import java.util.concurrent.LinkedBlockingQueue;
 import javax.swing.*;
 
 public class ReceiveCloud  {
-    static String cloud_server = new String();
+    private static String cloud_server = new String();
 
-    static Map<String, String> topicsToTablesMap = new HashMap<>();
+    private static Map<String, String> topicsToTablesMap = new HashMap<>();
+
 
 
 
 //Função para mapear cada tópico do MQTT para uma tabela do MySQL
     private static void setTopicToTablesMap() {
         try {
+
             Properties p = new Properties();
             p.load(new FileInputStream("ReceiveCloud.ini"));
             String cloudTopic = p.getProperty("cloud_topic");
@@ -43,6 +46,8 @@ public class ReceiveCloud  {
         }
     }
 
+
+
     public static void main(String[] args) {
         //createWindow();
         setTopicToTablesMap();
@@ -57,6 +62,8 @@ public class ReceiveCloud  {
                     WriteMysql write2mysql = new WriteMysql(collection.getValue(), messageQueue);
                     cloud2java.start();
                     write2mysql.start();
+                    SendCloud sendCloud = new SendCloud();
+                    sendCloud.start();
                 }
             };
             thread.run();

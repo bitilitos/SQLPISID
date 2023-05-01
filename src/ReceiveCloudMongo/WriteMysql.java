@@ -107,7 +107,7 @@ public class WriteMysql extends Thread {
                 stmt = connTo.prepareCall(query);
                 stmt = statementForTemperatureMeasurementsSP(reading, stmt);
             } else {
-                String query = "{CALL spCreateAlerts(?,?,?,?,?,?)}";
+                String query = "{CALL spCreateAlert(?,?,?,?,?,?)}";
                 stmt = connTo.prepareCall(query);
                 stmt = statementForAlertsSP(reading, stmt);
             }
@@ -153,25 +153,55 @@ public class WriteMysql extends Thread {
 
     private CallableStatement statementForAlertsSP(DBObject reading, CallableStatement cs) throws SQLException {
         CallableStatement stmt = cs;
+        stmt.setTimestamp(1, Timestamp.valueOf(reading.get("Hour").toString()));
+
         if(reading.containsField("EntranceRoom")){
             int entRoom = (Integer) reading.get("EntranceRoom");
             int exitRoom = (Integer) reading.get("ExitRoom");
             String roomConcat = Integer.toString(entRoom) + Integer.toString(exitRoom);
-            stmt.setInt(1, Integer.parseInt(roomConcat));
-        } else stmt.setInt(1, -1);
+            stmt.setInt(2, Integer.parseInt(roomConcat));
+        } else stmt.setInt(2, -1);
 
         if(reading.containsField("Measure")){
-            stmt.setInt(2, (Integer) reading.get("Sensor"));
-            stmt.setDouble(3, (Double) reading.get("Measure"));
+            stmt.setInt(3, (Integer) reading.get("Sensor"));
+            stmt.setDouble(4, (Double) reading.get("Measure"));
         }
         else {
-            stmt.setInt(2, -1);
-            stmt.setDouble(3, -272.15);
+            stmt.setInt(3, -1);
+            stmt.setDouble(4, -272.15);
         }
-        stmt.setString(4, (String) (reading.get("Message")));
         stmt.setString(5, (String) reading.get("AlertType"));
-        stmt.setTimestamp(6, Timestamp.valueOf(reading.get("Hour").toString()));
+        stmt.setString(6, (String) (reading.get("Message")));
+
         return stmt;
+    }
+
+    private void insertSingleForTesting() throws SQLException {
+
+        String sqlQuery = "";
+        CallableStatement stmt = null;
+
+        try {
+            String query = "{CALL spCreateTemperatureMeasurements(?,?,?,?,?,?,?)}";
+            stmt = connTo.prepareCall(query);
+
+            stmt.setString(1, Integer.toString((int) (Math.random() * 1000)));
+            stmt.setTimestamp(2, Timestamp.valueOf("2023-04-30 18:27:21.105147"));
+            stmt.setDouble(3, Double.parseDouble("7.699999999999987"));
+            stmt.setInt(4, 1);
+            stmt.setBoolean(5, true);
+            stmt.setString(6, "");
+            stmt.setString(7, "");
+
+
+            stmt.executeUpdate();
+        } catch (Exception e) {
+            System.out.println("Error Inserting in the database . " + e);
+            System.out.println(sqlQuery);
+        } finally {
+            stmt.close();
+        }
+
     }
 
 
@@ -187,4 +217,17 @@ public class WriteMysql extends Thread {
 
     }
 
+    public static Connection getConnTo() {return  connTo;}
+
+    public static void main(String[] args) {
+        WriteMysql write2mysql = new WriteMysql("temperaturemeasurements", null);
+        write2mysql.connectoDatabase();
+        try {
+            write2mysql.insertSingleForTesting();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 }
+
