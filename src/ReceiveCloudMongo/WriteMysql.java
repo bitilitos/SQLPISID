@@ -34,6 +34,7 @@ public class WriteMysql extends Thread {
     static String sql_database_user_to = "root";
     String sql_table_to = new String();
 
+
     public WriteMysql(String sql_table_to, BlockingQueue<String> messageQueue) {
         this.messageQueue = messageQueue;
         this.sql_table_to = sql_table_to;
