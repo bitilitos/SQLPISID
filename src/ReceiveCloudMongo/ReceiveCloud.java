@@ -49,7 +49,7 @@ public class ReceiveCloud  {
 
 
     public static void main(String[] args) {
-        //createWindow();
+        WriteMysql.createWindow();
         setTopicToTablesMap();
         for (Map.Entry<String, String> collection : topicsToTablesMap.entrySet()){
             Runnable thread = new Runnable() {

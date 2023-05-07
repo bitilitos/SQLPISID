@@ -1,12 +1,5 @@
 package ReceiveCloudMongo;//(c) ISCTE-IUL, Pedro Ramos, 2022
 
-//import org.bson.Document;
-//import org.bson.*;
-//import org.bson.conversions.*;
-
-//import org.json.JSONArray;
-//import org.json.JSONObject;
-//import org.json.JSONException;
 
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
@@ -38,14 +31,13 @@ public class WriteMysql extends Thread {
     public WriteMysql(String sql_table_to, BlockingQueue<String> messageQueue) {
         this.messageQueue = messageQueue;
         this.sql_table_to = sql_table_to;
-        //createWindow();
 
     }
 
-    private static void createWindow() {
-        JFrame frame = new JFrame("Data Bridge");
+    public static void createWindow() {
+        JFrame frame = new JFrame("Data Bridge - PC2 - mySQL");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        JLabel textLabel = new JLabel("Data : ", SwingConstants.CENTER);
+        JLabel textLabel = new JLabel("Data from MQTT: g7_tempRead, g7_movRead, g7_alert", SwingConstants.CENTER);
         textLabel.setPreferredSize(new Dimension(600, 30));
         JScrollPane scroll = new JScrollPane(documentLabel, JScrollPane.VERTICAL_SCROLLBAR_ALWAYS, JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
         scroll.setPreferredSize(new Dimension(600, 200));
@@ -70,6 +62,7 @@ public class WriteMysql extends Thread {
         while (true) {
             try {
                 String message = messageQueue.take();
+                documentLabel.insert(message + "\n", 0);
                 writeToMySQL(message);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -131,8 +124,8 @@ public class WriteMysql extends Thread {
 
         stmt.setString(1, reading.get("_id").toString());
         stmt.setTimestamp(2, Timestamp.valueOf(reading.get("Hour").toString()));
-        stmt.setInt(3, (Integer) reading.get("EntranceRoom"));
-        stmt.setInt(4, (Integer) reading.get("ExitRoom"));
+        stmt.setInt(4, (Integer) reading.get("EntranceRoom"));
+        stmt.setInt(3, (Integer) reading.get("ExitRoom"));
         stmt.setBoolean(5, (Boolean) (reading.get("isValid")));
         stmt.setString(6, (String) reading.get("Error"));
         stmt.setString(7, "");
