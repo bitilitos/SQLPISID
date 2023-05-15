@@ -86,7 +86,7 @@ public class WriteMysql extends Thread {
 
     //TENHO QUE ALTERAR ESTA FUNÇÃO PARA LIGAR COM SP E TRIGGERS
 
-    public void writeToMySQL(String c) throws SQLException {
+    public void writeToMySQL(String c) throws SQLException, InterruptedException {
         String sqlQuery = "";
         DBObject reading = getDBObjectFromReading(c);
         CallableStatement stmt = null;
@@ -105,13 +105,21 @@ public class WriteMysql extends Thread {
                 stmt = connTo.prepareCall(query);
                 stmt = statementForAlertsSP(reading, stmt);
             }
-
             stmt.executeUpdate();
         } catch (Exception e) {
-            System.out.println("Error Inserting in the database . " + e);
+            System.out.println("Error Inserting in the database to table " + sql_table_to + "\n" + e);
             System.out.println(sqlQuery);
+            if (!connTo.isValid(1)) {
+                while (!connTo.isValid(2)) {
+                    connectoDatabase();
+                    System.out.println(sql_table_to + " Thread is trying to reconnect");
+                }
+                writeToMySQL(c);
+            }
+
         } finally {
-            stmt.close();
+            if(stmt != null)
+                stmt.close();
         }
 
 
