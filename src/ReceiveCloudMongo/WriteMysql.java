@@ -1,6 +1,7 @@
 package ReceiveCloudMongo;//(c) ISCTE-IUL, Pedro Ramos, 2022
 
 
+import SendCloud.*;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.util.JSON;
@@ -22,16 +23,32 @@ public class WriteMysql extends Thread {
     static JTextArea documentLabel = new JTextArea("\n");
     private BlockingQueue<String> messageQueue;
     static Connection connTo;
-    static String sql_database_connection_to = "jdbc:mariadb://localhost:3306/rats";
-    static String sql_database_password_to = "paloco2023";
-    static String sql_database_user_to = "root";
+    public static final String WRITE_MY_SQL_INI_PATH = "WriteMysql.ini";
+    static String sql_database_connection_to;
+    static String sql_database_password_to;
+    static String sql_database_user_to;
     String sql_table_to = new String();
 
 
     public WriteMysql(String sql_table_to, BlockingQueue<String> messageQueue) {
+        loadConfig();
         this.messageQueue = messageQueue;
         this.sql_table_to = sql_table_to;
 
+    }
+
+    private static void loadConfig() {
+        try {
+            Properties p = new Properties();
+            p.load(new FileInputStream(WRITE_MY_SQL_INI_PATH));
+            sql_database_connection_to = p.getProperty("sql_database_connection_to");
+            sql_database_user_to = p.getProperty("sql_database_user_to");
+            sql_database_password_to = p.getProperty("sql_database_password_to");
+
+        } catch (Exception e) {
+            System.out.println("Error reading WriteMySQL.ini file " + e);
+            JOptionPane.showMessageDialog(null, "The WriteMySQL.ini file wasn't found.", "WriteMySQL", JOptionPane.ERROR_MESSAGE);
+        }
     }
 
     public static void createWindow() {
@@ -84,8 +101,6 @@ public class WriteMysql extends Thread {
     }
 
 
-    //TENHO QUE ALTERAR ESTA FUNÇÃO PARA LIGAR COM SP E TRIGGERS
-
     public void writeToMySQL(String c) throws SQLException, InterruptedException {
         String sqlQuery = "";
         DBObject reading = getDBObjectFromReading(c);
@@ -95,7 +110,12 @@ public class WriteMysql extends Thread {
             if (sql_table_to.equals("passagesmeasurements")) {
                 String query = "{CALL spCreatePassagesMeasurements(?,?,?,?,?,?,?)}";
                 stmt = connTo.prepareCall(query);
-                stmt = statementForPassageMeasurementsSP(reading, stmt);
+                if (stmt!=null) {
+                    stmt = statementForPassageMeasurementsSP(reading, stmt);
+                }
+                else {
+                    insertNotACorridorAlert(reading);
+                }
             } else if (sql_table_to.equals("temperaturemeasurements")) {
                 String query = "{CALL spCreateTemperatureMeasurements(?,?,?,?,?,?,?)}";
                 stmt = connTo.prepareCall(query);
@@ -129,6 +149,10 @@ public class WriteMysql extends Thread {
 
     private CallableStatement statementForPassageMeasurementsSP(DBObject reading, CallableStatement cs) throws SQLException {
         CallableStatement stmt = cs;
+
+        if(!isCorridor( (Integer) reading.get("EntranceRoom"), (Integer) reading.get("ExitRoom"))) {
+            return null;
+        }
 
         stmt.setString(1, reading.get("_id").toString());
         stmt.setTimestamp(2, Timestamp.valueOf(reading.get("Hour").toString()));
@@ -178,24 +202,25 @@ public class WriteMysql extends Thread {
         return stmt;
     }
 
-    private void insertSingleForTesting() throws SQLException {
+    private void insertNotACorridorAlert(DBObject reading) throws SQLException {
 
         String sqlQuery = "";
         CallableStatement stmt = null;
 
         try {
-            String query = "{CALL spCreateTemperatureMeasurements(?,?,?,?,?,?,?)}";
+            String query = "{CALL spCreateAlert(?,?,?,?,?,?)}";
             stmt = connTo.prepareCall(query);
 
-            stmt.setString(1, Integer.toString((int) (Math.random() * 1000)));
-            stmt.setTimestamp(2, Timestamp.valueOf("2023-04-30 18:27:21.105147"));
-            stmt.setDouble(3, Double.parseDouble("7.699999999999987"));
-            stmt.setInt(4, 1);
-            stmt.setBoolean(5, true);
-            stmt.setString(6, "");
-            stmt.setString(7, "");
+            int entRoom = (Integer) reading.get("EntranceRoom");
+            int exitRoom = (Integer) reading.get("ExitRoom");
+            String roomConcat = Integer.toString(entRoom) + Integer.toString(exitRoom);
+            stmt.setTimestamp(1, Timestamp.valueOf(reading.get("Hour").toString()));
+            stmt.setInt(2, Integer.parseInt(roomConcat));
+            stmt.setInt(3, -1);
+            stmt.setDouble(4, -272.15);
 
-
+            stmt.setString(5, (String) reading.get("High"));
+            stmt.setString(6, (String) (reading.get("This corridor does not exist.")));
             stmt.executeUpdate();
         } catch (Exception e) {
             System.out.println("Error Inserting in the database . " + e);
@@ -204,6 +229,14 @@ public class WriteMysql extends Thread {
             stmt.close();
         }
 
+    }
+
+    private static boolean isCorridor(int salaentrada, int salasaida) {
+        int multiplier = 10;
+        if (salasaida > 9) {
+            multiplier = 100;
+        }
+        return SendCloud.corridors.contains((salaentrada * multiplier) + salasaida);
     }
 
 
@@ -224,11 +257,7 @@ public class WriteMysql extends Thread {
     public static void main(String[] args) {
         WriteMysql write2mysql = new WriteMysql("temperaturemeasurements", null);
         write2mysql.connectoDatabase();
-        try {
-            write2mysql.insertSingleForTesting();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+
     }
 
 }
