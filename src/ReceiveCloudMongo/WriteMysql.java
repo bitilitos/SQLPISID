@@ -29,6 +29,8 @@ public class WriteMysql extends Thread {
     static String sql_database_user_to;
     String sql_table_to = new String();
 
+    private static Timestamp lastPassageReceived;
+
 
     public WriteMysql(String sql_table_to, BlockingQueue<String> messageQueue) {
         loadConfig();
@@ -81,6 +83,9 @@ public class WriteMysql extends Thread {
                 String message = messageQueue.take();
                 documentLabel.insert(message + "\n", 0);
                 writeToMySQL(message);
+                if (new Timestamp(System.currentTimeMillis()).getTime() - lastPassageReceived.getTime() > 5000) {
+                    insertNoMovementAlert();
+                }
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } catch (SQLException e) {
@@ -108,6 +113,7 @@ public class WriteMysql extends Thread {
         try {
 
             if (sql_table_to.equals("passagesmeasurements")) {
+                lastPassageReceived = new Timestamp(System.currentTimeMillis());
                 String query = "{CALL spCreatePassagesMeasurements(?,?,?,?,?,?,?)}";
                 stmt = connTo.prepareCall(query);
                 if (stmt!=null) {
@@ -221,6 +227,32 @@ public class WriteMysql extends Thread {
 
             stmt.setString(5, (String) reading.get("High"));
             stmt.setString(6, (String) (reading.get("This corridor does not exist.")));
+            stmt.executeUpdate();
+        } catch (Exception e) {
+            System.out.println("Error Inserting in the database . " + e);
+            System.out.println(sqlQuery);
+        } finally {
+            stmt.close();
+        }
+
+    }
+
+    private void insertNoMovementAlert() throws SQLException {
+
+        String sqlQuery = "";
+        CallableStatement stmt = null;
+
+        try {
+            String query = "{CALL spCreateAlert(?,?,?,?,?,?)}";
+            stmt = connTo.prepareCall(query);
+
+            stmt.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            stmt.setInt(2, -1);
+            stmt.setInt(3, -1);
+            stmt.setDouble(4, -272.15);
+
+            stmt.setString(5, "INFO:");
+            stmt.setString(6, "There was no rat movement in the last 5 seconds");
             stmt.executeUpdate();
         } catch (Exception e) {
             System.out.println("Error Inserting in the database . " + e);
